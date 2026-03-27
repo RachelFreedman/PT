@@ -6,7 +6,7 @@ struct DayDetailView: View {
     let dayLogID: PersistentIdentifier
 
     private var dayLog: DayLog? {
-        try? modelContext.model(for: dayLogID) as? DayLog
+        modelContext.model(for: dayLogID) as? DayLog
     }
 
     var body: some View {

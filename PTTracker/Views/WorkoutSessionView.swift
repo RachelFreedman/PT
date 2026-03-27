@@ -112,7 +112,7 @@ struct WorkoutSessionView: View {
         let batchAfter = ProgressionEngine.currentBatchNumber(tracks: tracks)
 
         if batchBefore != batchAfter {
-            if let next = batchAfter {
+            if batchAfter != nil {
                 let nextLevels = ProgressionEngine.activeLevels(tracks: tracks)
                 let names = nextLevels.map(\.displayName).joined(separator: " + ")
                 batchCompleteMessage = "Moving on to \(names)"

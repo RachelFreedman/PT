@@ -2,11 +2,11 @@ name: PTTracker
 options:
   bundleIdPrefix: com.rachelfreedman
   deploymentTarget:
-    iOS: "17.0"
-  xcodeVersion: "16.0"
+    iOS: "26.0"
+  xcodeVersion: "26.0"
   generateEmptyDirectories: true
 settings:
-  SWIFT_VERSION: "5.0"
+  SWIFT_VERSION: "6.0"
 targets:
   PTTracker:
     type: application
