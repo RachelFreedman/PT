@@ -1,0 +1,36 @@
+name: PTTracker
+options:
+  bundleIdPrefix: com.rachelfreedman
+  deploymentTarget:
+    iOS: "17.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: true
+settings:
+  SWIFT_VERSION: "5.0"
+targets:
+  PTTracker:
+    type: application
+    platform: iOS
+    sources:
+      - PTTracker
+    settings:
+      INFOPLIST_KEY_UIApplicationSceneManifest_Generation: true
+      INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: true
+      INFOPLIST_KEY_UILaunchScreen_Generation: true
+      INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
+      INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait"
+      SWIFT_STRICT_CONCURRENCY: minimal
+    info:
+      path: PTTracker/Info.plist
+      properties:
+        CFBundleDisplayName: PT Tracker
+        UILaunchScreen: {}
+  PTTrackerTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - PTTrackerTests
+    dependencies:
+      - target: PTTracker
+    settings:
+      SWIFT_STRICT_CONCURRENCY: minimal
