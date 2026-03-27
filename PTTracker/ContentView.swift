@@ -8,13 +8,13 @@ struct ContentView: View {
     var body: some View {
         TabView {
             Tab("Today", systemImage: "house") {
-                Text("Today — coming soon")
+                TodayView()
             }
             Tab("Progress", systemImage: "chart.bar") {
-                Text("Progress — coming soon")
+                PTProgressView()
             }
             Tab("History", systemImage: "clock") {
-                Text("History — coming soon")
+                HistoryView()
             }
         }
         .onAppear {
