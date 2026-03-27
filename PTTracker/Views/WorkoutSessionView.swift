@@ -7,6 +7,8 @@ struct WorkoutSessionView: View {
     @Query(sort: \Track.sortOrder) private var tracks: [Track]
     @State private var viewModel = WorkoutViewModel()
     @State private var showFinishConfirmation = false
+    @State private var showBatchCompleteAlert = false
+    @State private var batchCompleteMessage = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,8 +30,7 @@ struct WorkoutSessionView: View {
             HStack(spacing: 20) {
                 if viewModel.isWorkoutComplete {
                     Button("Save & Finish") {
-                        viewModel.saveWorkout(context: modelContext, tracks: tracks)
-                        dismiss()
+                        saveAndCheckAdvancement()
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
@@ -85,8 +86,7 @@ struct WorkoutSessionView: View {
         }
         .confirmationDialog("End workout early?", isPresented: $showFinishConfirmation) {
             Button("Save completed exercises") {
-                viewModel.saveWorkout(context: modelContext, tracks: tracks)
-                dismiss()
+                saveAndCheckAdvancement()
             }
             Button("Discard workout", role: .destructive) {
                 viewModel.cancelWorkout()
@@ -98,6 +98,30 @@ struct WorkoutSessionView: View {
         }
         .onAppear {
             viewModel.loadExercises(from: tracks)
+        }
+        .alert("Batch Complete!", isPresented: $showBatchCompleteAlert) {
+            Button("OK") { dismiss() }
+        } message: {
+            Text(batchCompleteMessage)
+        }
+    }
+
+    private func saveAndCheckAdvancement() {
+        let batchBefore = ProgressionEngine.currentBatchNumber(tracks: tracks)
+        viewModel.saveWorkout(context: modelContext, tracks: tracks)
+        let batchAfter = ProgressionEngine.currentBatchNumber(tracks: tracks)
+
+        if batchBefore != batchAfter {
+            if let next = batchAfter {
+                let nextLevels = ProgressionEngine.activeLevels(tracks: tracks)
+                let names = nextLevels.map(\.displayName).joined(separator: " + ")
+                batchCompleteMessage = "Moving on to \(names)"
+            } else {
+                batchCompleteMessage = "You've completed the entire PT program!"
+            }
+            showBatchCompleteAlert = true
+        } else {
+            dismiss()
         }
     }
 
