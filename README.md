@@ -1,6 +1,6 @@
 # PT Tracker
 
-A personal iOS app for tracking progress through the Muldowney Exercise Protocol — a structured physical therapy program for people with Ehlers-Danlos Syndrome (EDS).
+A personal iOS app for tracking progress through the Muldowney Exercise Protocol — a structured physical therapy program.
 
 ## Requirements
 

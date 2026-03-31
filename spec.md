@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-PTTracker is a personal iOS app for tracking progress through the **Muldowney Exercise Protocol (MEP)**, a structured physical therapy program for people with Ehlers-Danlos Syndrome (EDS). The app manages exercise progression through 16 sequential batches across 4 tracks, with intelligent workout planning, a countdown timer, wellness tracking, and full data import/export.
+PTTracker is a personal iOS app for tracking progress through the **Muldowney Exercise Protocol (MEP)**, a structured physical therapy program. The app manages exercise progression through 16 sequential batches across 4 tracks, with intelligent workout planning, a countdown timer, wellness tracking, and full data import/export.
 
 - **Platform:** iOS 26
 - **Framework:** SwiftUI + SwiftData
