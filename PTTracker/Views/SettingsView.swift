@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var importError: String?
     @State private var showImportError = false
     @State private var showImportSuccess = false
+    @State private var showResetConfirmation = false
 
     private var batchDescriptions: [(index: Int, label: String)] {
         PTProtocolConfig.batches.enumerated().map { index, entries in
@@ -43,6 +44,17 @@ struct SettingsView: View {
                     }
                 } footer: {
                     Text("Import progress and history from a previously exported CSV.")
+                }
+
+                Section {
+                    Button(role: .destructive) {
+                        showResetConfirmation = true
+                    } label: {
+                        Label("Reset Everything", systemImage: "arrow.counterclockwise")
+                            .foregroundStyle(.red)
+                    }
+                } footer: {
+                    Text("Delete all workout history and reset all exercises to the beginning.")
                 }
             }
             .navigationTitle("Settings")
@@ -85,6 +97,12 @@ struct SettingsView: View {
                 Button("OK") {}
             } message: {
                 Text("Progress and history have been updated.")
+            }
+            .confirmationDialog("Reset everything?", isPresented: $showResetConfirmation, titleVisibility: .visible) {
+                Button("Reset", role: .destructive) { performReset() }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This will delete all workout history and reset all exercises to the beginning. This cannot be undone.")
             }
         }
     }
@@ -138,6 +156,29 @@ struct SettingsView: View {
                 guard let trackDef = PTProtocolConfig.tracks.first(where: { $0.name == entry.trackName }) else { continue }
                 guard entry.levelNumber < trackDef.levels.count else { continue }
                 let levelDef = trackDef.levels[entry.levelNumber]
+                for exercise in level.exercises {
+                    if let exDef = levelDef.exercises.first(where: { $0.name == exercise.name }) {
+                        exercise.currentDuration = exDef.resolvedStartDuration
+                    }
+                }
+            }
+        }
+
+        try? modelContext.save()
+    }
+
+    private func performReset() {
+        // Delete all history
+        let logDescriptor = FetchDescriptor<DayLog>()
+        if let logs = try? modelContext.fetch(logDescriptor) {
+            for log in logs { modelContext.delete(log) }
+        }
+
+        // Reset all exercises to config start durations
+        for trackDef in PTProtocolConfig.tracks {
+            guard let track = tracks.first(where: { $0.name == trackDef.name }) else { continue }
+            for (levelNum, levelDef) in trackDef.levels.enumerated() {
+                guard let level = track.levels.first(where: { $0.levelNumber == levelNum }) else { continue }
                 for exercise in level.exercises {
                     if let exDef = levelDef.exercises.first(where: { $0.name == exercise.name }) {
                         exercise.currentDuration = exDef.resolvedStartDuration
