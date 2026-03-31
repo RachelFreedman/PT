@@ -10,14 +10,16 @@ struct CurrentBatchSummary: View {
 
     var body: some View {
         if activeLevels.isEmpty {
-            Text("Program complete!")
+            Label("Program complete!", systemImage: "trophy.fill")
                 .font(.headline)
-                .foregroundStyle(.green)
+                .foregroundStyle(Theme.gradient)
         } else {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Current batch")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.tertiary)
+                    .textCase(.uppercase)
+                    .tracking(0.5)
                 Text(activeLevels.map(\.displayName).joined(separator: " + "))
                     .font(.headline)
             }
