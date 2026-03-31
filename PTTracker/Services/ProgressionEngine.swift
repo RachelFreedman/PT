@@ -6,10 +6,10 @@ enum ProgressionEngine {
     /// Minimum remaining seconds at which a "skip" still counts as completed.
     static let skipGraceSeconds: Int = 20
 
-    /// Days without a workout before the last workout must be repeated (no increment).
+    /// Days without a fully completed workout before repeating (no advancement).
     static let repeatAfterDays: Int = 3
 
-    /// Days without a workout before the entire batch resets to start durations.
+    /// Days without a fully completed workout before resetting the batch.
     static let resetAfterDays: Int = 7
 
     // MARK: - Batch & Level Queries
@@ -56,10 +56,8 @@ enum ProgressionEngine {
     enum WorkoutMode {
         /// Normal workout — advance durations for completed exercises afterward.
         case normal
-        /// Repeat workout — do not advance durations afterward (gap of 3+ days).
+        /// Repeat workout — same exercises at current durations, no advancement afterward.
         case repeatAfterGap
-        /// Partial redo — only the incomplete exercises from last time, at the same durations. No advancement.
-        case redoIncomplete
     }
 
     struct WorkoutPlan {
@@ -68,45 +66,41 @@ enum ProgressionEngine {
     }
 
     /// Determines what the next workout should look like based on history.
+    ///
+    /// Rules:
+    /// - Find the last fully completed workout (all exercises marked completed).
+    /// - If >= 7 days since that workout: reset batch to start durations, then repeat.
+    /// - If >= 3 days since that workout: repeat at current durations (no advancement).
+    ///   This includes days with no log, logged skips, or partial workouts.
+    /// - Otherwise: normal workout with advancement.
     static func planWorkout(tracks: [Track], dayLogs: [DayLog]) -> WorkoutPlan {
         let allExercises = activeExercises(tracks: tracks)
         guard !allExercises.isEmpty else {
             return WorkoutPlan(mode: .normal, exercises: [])
         }
 
-        // Find the most recent non-skip workout log
-        let lastWorkout = dayLogs
-            .filter { !$0.isSkip && !$0.exerciseLogs.isEmpty }
+        // Find the most recent fully completed workout
+        // (non-skip, has exercise logs, and ALL exercises were completed)
+        let lastFullWorkout = dayLogs
+            .filter { !$0.isSkip && !$0.exerciseLogs.isEmpty && $0.exerciseLogs.allSatisfy(\.completed) }
             .sorted { $0.date > $1.date }
             .first
 
-        guard let lastWorkout else {
-            // No previous workout — just start normally
+        guard let lastFullWorkout else {
+            // No previous fully completed workout — just start normally
             return WorkoutPlan(mode: .normal, exercises: allExercises.map { ($0, $0.currentDuration) })
         }
 
-        let daysSince = Calendar.current.dateComponents([.day], from: lastWorkout.date, to: Date.now.startOfDay).day ?? 0
+        let daysSince = Calendar.current.dateComponents([.day], from: lastFullWorkout.date, to: Date.now.startOfDay).day ?? 0
 
-        // 7+ days: reset batch to start durations
+        // 7+ days since last full workout: reset batch to start durations
         if daysSince >= resetAfterDays {
             resetBatchToStart(tracks: tracks)
-            return WorkoutPlan(mode: .repeatAfterGap, exercises: allExercises.map { ($0, $0.currentDuration) })
+            let refreshed = activeExercises(tracks: tracks)
+            return WorkoutPlan(mode: .repeatAfterGap, exercises: refreshed.map { ($0, $0.currentDuration) })
         }
 
-        // Check if last workout had incomplete exercises
-        let incompleteNames = lastWorkout.exerciseLogs
-            .filter { !$0.completed }
-            .map(\.exerciseName)
-
-        if !incompleteNames.isEmpty {
-            // Redo only the incomplete exercises at their current (un-advanced) durations
-            let redoExercises = allExercises.filter { incompleteNames.contains($0.name) }
-            if !redoExercises.isEmpty {
-                return WorkoutPlan(mode: .redoIncomplete, exercises: redoExercises.map { ($0, $0.currentDuration) })
-            }
-        }
-
-        // 3+ days: repeat the full workout without advancing
+        // 3+ days since last full workout: repeat at current durations
         if daysSince >= repeatAfterDays {
             return WorkoutPlan(mode: .repeatAfterGap, exercises: allExercises.map { ($0, $0.currentDuration) })
         }

@@ -284,16 +284,18 @@ Three sections:
 - Y-axis: batch level 1–16
 - 30-day visible window, horizontally scrollable
 - Point styles:
-  - **Filled circle** (workout): purple (#a478f1) for core batches 0–3, pink (#f24389) for upper batches 4–9, orange (#f0a13a) for lower batches 10–15
-  - **Open circle** (skip): cyan (#61cef2) for fatigue/PEM, green (#adfda2) for pain, gray for other
+  - **Filled circle** (workout): smooth gradient from purple (#a478f1) at level 1 through pink (#f24389) at level 8 to orange (#f0a13a) at level 16
+  - **Open circle** (skip): cyan (#61cef2) for fatigue/PEM, sage (#6b9e6b) for pain, gray for other
 
 **Current Batch** — each active level expanded with `ExerciseProgressRow` components showing name, current duration, and a progress bar from startDuration to targetMaxDuration.
 
 **All Tracks** — list of 4 tracks with "X/Y levels" completed. Tappable for drill-down.
 
 **Drill-down navigation:**
-- Track → `TrackDetailView`: all levels with status icon (green checkmark = complete, blue dotted circle = in progress, gray circle = not started)
+- Track → `TrackDetailView`: all levels with circular progress rings (green checkmark fill = complete, animated ring = in progress, empty circle = not started)
 - Level → `LevelDetailView`: all exercises with `ExerciseProgressRow`
+
+Each track row shows a circular progress ring colored by position on the theme gradient (Mat=purple, Ball=purple-pink, Neck=pink, LE=orange).
 
 ### 5.5 History Tab
 
@@ -311,7 +313,7 @@ Reverse-chronological list of all `DayLog` entries.
 
 ### 5.6 Settings Tab
 
-**Set Start Point** — pick a batch; all exercises in prior batches are set to their max duration. Confirmation dialog warns this can't be undone.
+**Set Start Point** — pick a batch; exercises in prior batches are set to their max duration, exercises from the target onward are reset to config start durations. Works bidirectionally (forward skips ahead, backward resets later batches). No history is deleted in either direction.
 
 **Import Data from CSV** — file picker for `.csv`/`.txt` files. Confirmation warns all history will be replaced. On success, updates exercise durations and recreates all DayLogs from the CSV. Shows success or error alert.
 

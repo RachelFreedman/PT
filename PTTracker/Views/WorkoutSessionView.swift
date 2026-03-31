@@ -260,8 +260,6 @@ struct WorkoutSessionView: View {
         let (text, icon, color): (String, String, Color) = switch viewModel.workoutMode {
         case .repeatAfterGap:
             ("Repeat workout", "arrow.counterclockwise", Theme.orange)
-        case .redoIncomplete:
-            ("Redoing incomplete", "arrow.uturn.backward", Theme.pink)
         case .normal:
             ("", "", .clear)
         }
