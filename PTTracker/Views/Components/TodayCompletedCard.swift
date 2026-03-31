@@ -4,36 +4,58 @@ struct TodayCompletedCard: View {
     let dayLog: DayLog
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             if dayLog.isSkip {
-                Label("Skipped", systemImage: "xmark.circle")
-                    .font(.title3.bold())
-                    .foregroundStyle(.orange)
-                if let reason = dayLog.skipReason {
-                    Text(reason)
-                        .foregroundStyle(.secondary)
+                HStack(spacing: 10) {
+                    Image(systemName: "moon.zzz.fill")
+                        .font(.title2)
+                        .foregroundStyle(Theme.skipBlue)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Rest Day")
+                            .font(.headline)
+                        if let reason = dayLog.skipReason {
+                            Text(reason)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
             } else {
-                Label("Workout complete", systemImage: "checkmark.circle.fill")
-                    .font(.title3.bold())
-                    .foregroundStyle(.green)
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.title2)
+                        .foregroundStyle(Theme.batchColor(for: dayLog.batchNumber + 1))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Workout Complete")
+                            .font(.headline)
+                        if let score = dayLog.wellnessScore {
+                            Text("Wellness \(score)/10 \u{2014} \(WellnessScale.label(for: score))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                Divider()
+
                 ForEach(dayLog.exerciseLogs, id: \.persistentModelID) { log in
-                    HStack {
-                        Image(systemName: log.completed ? "checkmark.circle.fill" : "xmark.circle")
-                            .foregroundStyle(log.completed ? .green : .red)
-                            .font(.caption)
+                    HStack(spacing: 10) {
+                        Circle()
+                            .fill(log.completed ? Theme.batchColor(for: dayLog.batchNumber + 1) : Color.secondary.opacity(0.3))
+                            .frame(width: 6, height: 6)
                         Text(log.exerciseName)
                             .font(.subheadline)
+                            .foregroundStyle(log.completed ? .primary : .secondary)
                         Spacer()
                         Text("\(log.durationUsed)s")
-                            .font(.subheadline)
+                            .font(.caption)
                             .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.tertiary)
                     }
                 }
             }
         }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .padding(20)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
     }
 }
