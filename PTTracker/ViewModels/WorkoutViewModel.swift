@@ -9,6 +9,7 @@ final class WorkoutViewModel {
     var isTimerRunning: Bool = false
     var remainingSeconds: Int = 0
     var isWorkoutComplete: Bool = false
+    private(set) var workoutMode: ProgressionEngine.WorkoutMode = .normal
 
     private var timer: AnyCancellable?
 
@@ -17,15 +18,17 @@ final class WorkoutViewModel {
         let name: String
         let targetDuration: Int
         var completed: Bool = false
+        var skipped: Bool = false
     }
 
-    func loadExercises(from tracks: [Track]) {
-        let active = ProgressionEngine.activeExercises(tracks: tracks)
-        exercises = active.map { exercise in
+    func loadExercises(from tracks: [Track], dayLogs: [DayLog]) {
+        let plan = ProgressionEngine.planWorkout(tracks: tracks, dayLogs: dayLogs)
+        workoutMode = plan.mode
+        exercises = plan.exercises.map { exercise, duration in
             ExerciseState(
                 id: exercise.persistentModelID,
                 name: exercise.name,
-                targetDuration: exercise.currentDuration
+                targetDuration: duration
             )
         }
         if let first = exercises.first {
@@ -53,10 +56,27 @@ final class WorkoutViewModel {
         timer = nil
     }
 
+    func skipCurrentExercise() {
+        pauseTimer()
+
+        if remainingSeconds <= ProgressionEngine.skipGraceSeconds {
+            // Close enough — count as completed
+            exercises[currentExerciseIndex].completed = true
+        } else {
+            // Skipped too early — not completed
+            exercises[currentExerciseIndex].skipped = true
+        }
+
+        moveToNextExercise()
+    }
+
     func completeCurrentExercise() {
         pauseTimer()
         exercises[currentExerciseIndex].completed = true
+        moveToNextExercise()
+    }
 
+    private func moveToNextExercise() {
         if currentExerciseIndex < exercises.count - 1 {
             currentExerciseIndex += 1
             remainingSeconds = exercises[currentExerciseIndex].targetDuration
@@ -65,8 +85,11 @@ final class WorkoutViewModel {
         }
     }
 
+    var wellnessScore: Int?
+
     func saveWorkout(context: ModelContext, tracks: [Track]) {
-        let dayLog = DayLog(date: Date.now.startOfDay, isSkip: false)
+        let currentBatch = ProgressionEngine.currentBatchNumber(tracks: tracks) ?? 0
+        let dayLog = DayLog(date: Date.now.startOfDay, isSkip: false, batchNumber: currentBatch, wellnessScore: wellnessScore)
 
         for state in exercises {
             let exerciseLog = ExerciseLog(
@@ -78,7 +101,9 @@ final class WorkoutViewModel {
         }
         context.insert(dayLog)
 
-        // Advance durations for completed exercises
+        // Only advance durations if this is a normal workout (not a repeat/redo)
+        guard workoutMode == .normal else { return }
+
         let allExercises = tracks.flatMap { $0.levels.flatMap(\.exercises) }
         let completedModels = exercises
             .filter(\.completed)
@@ -86,6 +111,17 @@ final class WorkoutViewModel {
                 allExercises.first { $0.persistentModelID == state.id }
             }
         ProgressionEngine.advanceDurations(for: completedModels)
+    }
+
+    func selectExercise(at index: Int) {
+        guard index >= 0, index < exercises.count else { return }
+        pauseTimer()
+        currentExerciseIndex = index
+        remainingSeconds = exercises[index].targetDuration
+        // Reset status so it can be re-attempted
+        exercises[index].completed = false
+        exercises[index].skipped = false
+        isWorkoutComplete = false
     }
 
     func cancelWorkout() {
