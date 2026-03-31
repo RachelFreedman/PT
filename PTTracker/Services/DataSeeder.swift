@@ -7,14 +7,17 @@ enum DataSeeder {
         let existingTracks = (try? context.fetch(descriptor)) ?? []
         guard existingTracks.isEmpty else { return }
 
-        for (index, def) in BatchConfig.trackDefinitions.enumerated() {
-            let track = Track(name: def.name, sortOrder: index)
-            for levelNum in 0..<def.levelCount {
+        for (trackIndex, trackDef) in PTProtocolConfig.tracks.enumerated() {
+            let track = Track(name: trackDef.name, sortOrder: trackIndex)
+            for (levelNum, levelDef) in trackDef.levels.enumerated() {
                 let level = Level(levelNumber: levelNum)
-                for exNum in 0..<3 {
+                for (exIndex, exDef) in levelDef.exercises.enumerated() {
                     let exercise = Exercise(
-                        name: "\(def.name) L\(levelNum) Ex\(exNum)",
-                        sortOrder: exNum
+                        name: exDef.name,
+                        sortOrder: exIndex,
+                        currentDuration: exDef.resolvedStartDuration,
+                        targetMaxDuration: exDef.resolvedMaxDuration,
+                        perSessionIncrement: exDef.resolvedDurationIncrement
                     )
                     level.exercises.append(exercise)
                 }

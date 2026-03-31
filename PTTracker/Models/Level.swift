@@ -17,6 +17,6 @@ final class Level {
     }
 
     var isComplete: Bool {
-        !exercises.isEmpty && exercises.allSatisfy { $0.currentDuration >= 180 }
+        !exercises.isEmpty && exercises.allSatisfy { $0.isComplete }
     }
 }
