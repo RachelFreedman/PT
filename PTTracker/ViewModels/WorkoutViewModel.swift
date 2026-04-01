@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import Combine
+import AudioToolbox
 
 @Observable
 final class WorkoutViewModel {
@@ -72,6 +73,7 @@ final class WorkoutViewModel {
 
     func completeCurrentExercise() {
         pauseTimer()
+        AudioServicesPlaySystemSound(1016)
         exercises[currentExerciseIndex].completed = true
         moveToNextExercise()
     }
