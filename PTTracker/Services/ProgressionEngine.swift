@@ -93,11 +93,11 @@ enum ProgressionEngine {
 
         let daysSince = Calendar.current.dateComponents([.day], from: lastFullWorkout.date, to: Date.now.startOfDay).day ?? 0
 
-        // 7+ days since last full workout: reset batch to start durations
+        // 7+ days since last full workout: reset batch to start durations, then progress normally
         if daysSince >= resetAfterDays {
             resetBatchToStart(tracks: tracks)
             let refreshed = activeExercises(tracks: tracks)
-            return WorkoutPlan(mode: .repeatAfterGap, exercises: refreshed.map { ($0, $0.currentDuration) })
+            return WorkoutPlan(mode: .normal, exercises: refreshed.map { ($0, $0.currentDuration) })
         }
 
         // 3+ days since last full workout: repeat at current durations
@@ -105,8 +105,27 @@ enum ProgressionEngine {
             return WorkoutPlan(mode: .repeatAfterGap, exercises: allExercises.map { ($0, $0.currentDuration) })
         }
 
-        // Normal workout
-        return WorkoutPlan(mode: .normal, exercises: allExercises.map { ($0, $0.currentDuration) })
+        // Normal workout — but first, apply any missed advancement from the last
+        // completed workout (fixes workouts saved before the reset-mode bug fix).
+        applyMissedAdvancement(lastWorkout: lastFullWorkout, exercises: allExercises)
+
+        let refreshed = activeExercises(tracks: tracks)
+        return WorkoutPlan(mode: .normal, exercises: refreshed.map { ($0, $0.currentDuration) })
+    }
+
+    /// If the last completed workout logged exercises at the same duration they're
+    /// currently at, advancement was missed — apply it now.
+    private static func applyMissedAdvancement(lastWorkout: DayLog, exercises: [Exercise]) {
+        let loggedDurations = Dictionary(
+            lastWorkout.exerciseLogs.filter(\.completed).map { ($0.exerciseName, $0.durationUsed) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let needsAdvancement = exercises.filter { exercise in
+            guard let logged = loggedDurations[exercise.name] else { return false }
+            return logged == exercise.currentDuration
+        }
+        guard !needsAdvancement.isEmpty else { return }
+        advanceDurations(for: needsAdvancement)
     }
 
     /// Resets all exercises in the current batch to their config-defined start durations.
