@@ -7,6 +7,7 @@ struct TodayView: View {
     @Query(sort: \Track.sortOrder) private var tracks: [Track]
     @State private var showSkipDialog = false
     @State private var navigateToWorkout = false
+    @State private var pendingWorkout: PendingWorkout?
 
     private var todayLog: DayLog? {
         dayLogs.first { Calendar.current.isDateInToday($0.date) }
@@ -50,7 +51,16 @@ struct TodayView: View {
             }
             .navigationTitle("PT Tracker")
             .navigationDestination(isPresented: $navigateToWorkout) {
-                WorkoutSessionView()
+                WorkoutSessionView(pendingWorkout: pendingWorkout)
+            }
+            .onAppear {
+                handlePendingWorkout()
+            }
+            .onChange(of: navigateToWorkout) { _, isNavigating in
+                if !isNavigating {
+                    // Returned from workout — refresh pending state
+                    handlePendingWorkout()
+                }
             }
             .confirmationDialog("Skip today's workout?", isPresented: $showSkipDialog) {
                 Button("PEM") { logSkip(reason: "PEM") }
@@ -113,17 +123,41 @@ struct TodayView: View {
 
             // Action buttons
             VStack(spacing: 12) {
-                Button {
-                    navigateToWorkout = true
-                } label: {
-                    Label("Start Workout", systemImage: "figure.strengthtraining.traditional")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
+                if pendingWorkout != nil {
+                    Button {
+                        navigateToWorkout = true
+                    } label: {
+                        Label("Resume Workout", systemImage: "arrow.clockwise")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.batchColor(for: currentBatch + 1))
+                    .controlSize(.large)
+
+                    Button {
+                        PendingWorkout.clear()
+                        pendingWorkout = nil
+                        navigateToWorkout = true
+                    } label: {
+                        Text("Start Over")
+                            .font(.subheadline)
+                    }
+                    .foregroundStyle(.secondary)
+                } else {
+                    Button {
+                        navigateToWorkout = true
+                    } label: {
+                        Label("Start Workout", systemImage: "figure.strengthtraining.traditional")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.batchColor(for: currentBatch + 1))
+                    .controlSize(.large)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.batchColor(for: currentBatch + 1))
-                .controlSize(.large)
 
                 Button {
                     showSkipDialog = true
@@ -143,5 +177,47 @@ struct TodayView: View {
         let currentBatch = ProgressionEngine.currentBatchNumber(tracks: tracks) ?? 0
         let log = DayLog(date: Date.now.startOfDay, isSkip: true, skipReason: reason, batchNumber: currentBatch)
         modelContext.insert(log)
+    }
+
+    /// Check for a pending workout. If it's from today, keep it for resume.
+    /// If it's stale (before today), save it as a partial DayLog and clear it.
+    private func handlePendingWorkout() {
+        guard let pending = PendingWorkout.load() else {
+            pendingWorkout = nil
+            return
+        }
+
+        if pending.isFromToday {
+            // Still resumable — but only if we haven't already saved a log for today
+            if todayLog == nil {
+                pendingWorkout = pending
+            } else {
+                PendingWorkout.clear()
+                pendingWorkout = nil
+            }
+        } else {
+            // Stale — save as partial workout and clear
+            saveStaleWorkout(pending)
+            PendingWorkout.clear()
+            pendingWorkout = nil
+        }
+    }
+
+    private func saveStaleWorkout(_ pending: PendingWorkout) {
+        let dayLog = DayLog(
+            date: pending.date,
+            isSkip: false,
+            batchNumber: pending.batchNumber,
+            wellnessScore: pending.wellnessScore
+        )
+        for ex in pending.exercises {
+            let log = ExerciseLog(
+                exerciseName: ex.exerciseName,
+                durationUsed: ex.targetDuration,
+                completed: ex.completed
+            )
+            dayLog.exerciseLogs.append(log)
+        }
+        modelContext.insert(dayLog)
     }
 }

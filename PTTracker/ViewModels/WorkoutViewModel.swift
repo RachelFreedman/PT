@@ -22,6 +22,9 @@ final class WorkoutViewModel {
         var skipped: Bool = false
     }
 
+    /// Whether this session was restored from a pending workout.
+    private(set) var isResumed: Bool = false
+
     func loadExercises(from tracks: [Track], dayLogs: [DayLog]) {
         let plan = ProgressionEngine.planWorkout(tracks: tracks, dayLogs: dayLogs)
         workoutMode = plan.mode
@@ -34,6 +37,34 @@ final class WorkoutViewModel {
         }
         if let first = exercises.first {
             remainingSeconds = first.targetDuration
+        }
+    }
+
+    /// Restore exercise state from a pending workout snapshot.
+    func restoreFromPending(_ pending: PendingWorkout, tracks: [Track], dayLogs: [DayLog]) {
+        // Load the fresh plan to get PersistentIdentifier-backed exercises
+        let plan = ProgressionEngine.planWorkout(tracks: tracks, dayLogs: dayLogs)
+        workoutMode = pending.workoutMode == "repeatAfterGap" ? .repeatAfterGap : .normal
+        wellnessScore = pending.wellnessScore
+
+        exercises = plan.exercises.map { exercise, duration in
+            let snapshot = pending.exercises.first { $0.exerciseName == exercise.name }
+            return ExerciseState(
+                id: exercise.persistentModelID,
+                name: exercise.name,
+                targetDuration: duration,
+                completed: snapshot?.completed ?? false,
+                skipped: snapshot?.skipped ?? false
+            )
+        }
+
+        currentExerciseIndex = min(pending.currentExerciseIndex, exercises.count - 1)
+        remainingSeconds = pending.remainingSeconds
+        isResumed = true
+
+        // If all exercises are already done, mark workout complete
+        if exercises.allSatisfy({ $0.completed || $0.skipped }) {
+            isWorkoutComplete = true
         }
     }
 
@@ -102,6 +133,7 @@ final class WorkoutViewModel {
             dayLog.exerciseLogs.append(exerciseLog)
         }
         context.insert(dayLog)
+        PendingWorkout.clear()
 
         // Only advance durations if this is a normal workout (not a repeat/redo)
         guard workoutMode == .normal else { return }
@@ -128,5 +160,27 @@ final class WorkoutViewModel {
 
     func cancelWorkout() {
         pauseTimer()
+    }
+
+    // MARK: - Pending State Persistence
+
+    func savePendingState(batchNumber: Int) {
+        let pending = PendingWorkout(
+            date: Date.now.startOfDay,
+            wellnessScore: wellnessScore,
+            workoutMode: workoutMode == .repeatAfterGap ? "repeatAfterGap" : "normal",
+            batchNumber: batchNumber,
+            currentExerciseIndex: currentExerciseIndex,
+            remainingSeconds: remainingSeconds,
+            exercises: exercises.map {
+                PendingWorkout.ExerciseSnapshot(
+                    exerciseName: $0.name,
+                    targetDuration: $0.targetDuration,
+                    completed: $0.completed,
+                    skipped: $0.skipped
+                )
+            }
+        )
+        PendingWorkout.save(pending)
     }
 }

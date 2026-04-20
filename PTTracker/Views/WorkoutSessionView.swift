@@ -4,6 +4,7 @@ import SwiftData
 struct WorkoutSessionView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \Track.sortOrder) private var tracks: [Track]
     @Query(sort: \DayLog.date, order: .reverse) private var dayLogs: [DayLog]
     @State private var viewModel = WorkoutViewModel()
@@ -12,6 +13,9 @@ struct WorkoutSessionView: View {
     @State private var batchCompleteMessage = ""
     @State private var showWellnessPrompt = true
     @State private var selectedWellnessScore: Int = 0
+
+    /// If set, the view restores from this pending workout instead of starting fresh.
+    var pendingWorkout: PendingWorkout? = nil
 
     private var currentBatchLevel: Int {
         (ProgressionEngine.currentBatchNumber(tracks: tracks) ?? 0) + 1
@@ -45,6 +49,7 @@ struct WorkoutSessionView: View {
             Button("Save completed exercises") { saveAndCheckAdvancement() }
             Button("Discard workout", role: .destructive) {
                 viewModel.cancelWorkout()
+                PendingWorkout.clear()
                 dismiss()
             }
             Button("Continue workout", role: .cancel) {}
@@ -52,7 +57,20 @@ struct WorkoutSessionView: View {
             Text("You have completed some exercises. Save progress or discard?")
         }
         .onAppear {
-            viewModel.loadExercises(from: tracks, dayLogs: dayLogs)
+            if let pending = pendingWorkout {
+                viewModel.restoreFromPending(pending, tracks: tracks, dayLogs: dayLogs)
+                showWellnessPrompt = false
+            } else {
+                viewModel.loadExercises(from: tracks, dayLogs: dayLogs)
+            }
+        }
+        .onDisappear {
+            savePendingIfNeeded()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase != .active {
+                savePendingIfNeeded()
+            }
         }
         .alert("Batch Complete!", isPresented: $showBatchCompleteAlert) {
             Button("OK") { dismiss() }
@@ -275,6 +293,15 @@ struct WorkoutSessionView: View {
             .frame(maxWidth: .infinity)
             .background(color.opacity(0.1))
         }
+    }
+
+    private func savePendingIfNeeded() {
+        // Only save if workout has started (wellness prompt dismissed) and isn't already saved
+        guard !showWellnessPrompt,
+              viewModel.exercises.contains(where: { $0.completed || $0.skipped }),
+              !viewModel.exercises.isEmpty else { return }
+        let batch = ProgressionEngine.currentBatchNumber(tracks: tracks) ?? 0
+        viewModel.savePendingState(batchNumber: batch)
     }
 
     private func saveAndCheckAdvancement() {
